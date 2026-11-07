@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Karesansui</title>
+<meta name="description" content="A dry Zen garden whose rake lines are computed from a field that flows around each stone, and re-raked one stroke at a time when you move a stone.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000; --fg:#ecebe6; --dim:#8a8984; --faint:#55544f;
+  --accent:#e7a56c;
+  --serif:"Lora",Georgia,"Times New Roman",serif;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP","Songti SC",serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#000; --fg:#ecebe6; } }
+:root[data-theme="dark"]{ --bg:#000; --fg:#ecebe6; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);overflow:hidden}
+body{font-family:var(--sans);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+header{position:fixed;left:max(32px,env(safe-area-inset-left));top:28px;max-width:600px;pointer-events:none;z-index:2}
+h1{font-family:var(--serif);font-weight:400;font-style:italic;font-size:30px;letter-spacing:-.01em;margin:0 0 12px;line-height:1.1}
+h1 .kanji{font-family:var(--mincho);font-style:normal;font-size:15px;letter-spacing:.32em;color:var(--faint);margin-left:12px;vertical-align:4px}
+.caption{margin:0;max-width:480px;font-size:13px;line-height:1.62;color:var(--dim)}
+.caption span{display:block}
+.caption .short{display:none}
+.foot{position:fixed;left:max(32px,env(safe-area-inset-left));right:max(32px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:center;z-index:2;pointer-events:none}
+.status{font-size:11px;letter-spacing:.04em;color:var(--faint);font-variant-numeric:tabular-nums;opacity:0;transition:opacity 1.4s ease}
+.status.on{opacity:1}
+.foot .right{display:flex;align-items:center;gap:22px}
+.meta{position:fixed;top:28px;right:max(32px,env(safe-area-inset-right));z-index:2;pointer-events:none;font-size:11px;letter-spacing:.04em;line-height:1.7;color:var(--faint);text-align:right}
+.made{position:relative;pointer-events:auto;font:inherit;letter-spacing:inherit;color:var(--faint);background:none;border:0;padding:0;margin-top:4px;cursor:pointer;
+  border-radius:0;text-decoration:underline;text-decoration-color:#2e2e2e;text-underline-offset:3px;transition:color .25s}
+.made:hover,.made[aria-expanded="true"]{color:var(--fg)}
+.made::after{content:"";position:absolute;inset:-13px -8px}   /* 44px tap area, no layout change */
+.made:focus-visible,.panel .close:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.panel{position:fixed;top:24px;right:max(24px,env(safe-area-inset-right));width:min(420px,calc(100% - 32px));max-height:calc(100% - 48px);overflow:auto;
+  padding:22px 24px 20px;background:rgba(8,8,8,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid #1f1f1f;border-radius:12px;opacity:0;transform:translateY(-4px);pointer-events:none;visibility:hidden;
+  transition:opacity .3s,transform .3s,visibility 0s linear .3s;z-index:5;overscroll-behavior:contain}
+.panel.on{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .3s,transform .3s}
+.panel h2{margin:0 0 4px;font:italic 400 20px/1.2 var(--serif);color:var(--fg);outline:0}
+.panel h3{margin:16px 0 4px;font:500 10.5px/1.3 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.panel p{margin:0 0 6px;font-size:12.5px;line-height:1.6;color:var(--dim)}
+.panel p b{color:var(--fg);font-weight:500}
+.panel .close{position:absolute;top:7px;right:7px;width:44px;height:44px;padding:0;border:0;border-radius:999px;font:400 17px/44px var(--sans);color:var(--faint);background:none;cursor:pointer}
+.panel .close:hover{color:var(--fg)}
+.panel .credit{margin:14px 0 0;padding-top:10px;border-top:1px solid #161616;font:italic 400 12.5px/1.4 var(--serif);color:#8e8e8e}
+#sound{position:relative;pointer-events:auto;font:400 12px/1 var(--sans);letter-spacing:.02em;color:var(--faint);background:none;border:0;padding:10px 0 10px 14px;cursor:pointer;transition:color .4s;display:flex;align-items:center;gap:8px}
+#sound:hover{color:var(--dim)}
+#sound::after{content:"";position:absolute;inset:-6px -8px -6px 0}   /* 44px-tall tap area */
+#sound i{width:5px;height:5px;border-radius:50%;border:1px solid currentColor;display:inline-block;transition:background .4s,border-color .4s}
+#sound[aria-pressed="true"]{color:var(--dim)}
+#sound[aria-pressed="true"] i{background:var(--accent);border-color:var(--accent)}
+#sound:focus-visible{outline:1px solid var(--accent);outline-offset:2px;border-radius:2px}
+.fallback{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--serif);font-style:italic;color:var(--dim);font-size:15px;display:none;text-align:center;padding:0 16px}
+@media (max-width: 720px){
+  header{left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));top:18px}
+  h1{font-size:25px;margin-bottom:8px}
+  h1 .kanji{font-size:13px;margin-left:10px;vertical-align:3px}
+  .caption{font-size:12.5px;line-height:1.55;max-width:none}
+  /* a phone gets the two-line caption: the idea in one line, the three gestures in the other */
+  .caption .long{display:none}
+  .caption .short{display:block}
+  .foot{left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));align-items:flex-end}
+  .foot .right{flex-direction:column;align-items:flex-end;gap:0}
+  .meta{top:18px;right:max(16px,env(safe-area-inset-right));font-size:11px}
+  .panel h3{font-size:11px}
+  .panel{top:auto;bottom:max(16px,env(safe-area-inset-bottom));right:16px;max-height:min(78%,calc(100% - 32px))}
+  .status{padding-bottom:10px;line-height:12px}
+}
+/* short landscape (a phone on its side): the caption keeps only its gesture line, so the garden gets the height */
+@media (max-height:500px) and (orientation:landscape){
+  header{top:14px}
+  h1{font-size:25px;margin-bottom:6px}
+  .caption .long,.caption .short{display:none}
+  .caption .short:last-child{display:block}
+  .meta{top:14px}
+  .foot{bottom:max(10px,env(safe-area-inset-bottom))}
+  .panel{top:12px;max-height:calc(100% - 24px)}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="A raked gravel garden. Tap the gravel to set a stone, drag a stone to move it, double-tap a stone to take it away."></canvas>
+<header>
+  <h1>Karesansui<span class="kanji" lang="ja">枯山水</span></h1>
+  <p class="caption">
+    <span class="long">The lines follow a field that flows around each stone.</span>
+    <span class="long">Nothing is drawn by hand: move a stone and the garden is raked again, stroke by stroke.</span>
+    <span class="long">Tap the gravel to set a stone, drag to move it, double-tap to take it away.</span>
+    <span class="short">Lines flow around each stone, raked stroke by stroke.</span>
+    <span class="short">Tap to set a stone, drag to move, double-tap to remove.</span>
+  </p>
+</header>
+<div class="meta"><button class="made" id="made" type="button" aria-expanded="false" aria-controls="panel">How it works</button></div>
+<div class="panel" id="panel" role="dialog" aria-modal="false" aria-labelledby="panel-h">
+  <button class="close" id="close" type="button" aria-label="Close">&times;</button>
+  <h2 id="panel-h" tabindex="-1">How it works</h2>
+  <h3>The field</h3>
+  <p>Each stone sits in a moss island. Close to the stones the grooves are rings: their phase is the distance to the islands, joined with a smooth minimum, so two stones close together share one set of ripples. Further out the phase is a <b>stream function</b>, straight lines bent by the flow round a cylinder at each stone. Lines that would enter the rings end in the outer groove.</p>
+  <h3>The gravel remembers</h3>
+  <p>The height of the gravel lives in a texture. A rake stroke writes the field for the current stones only where the rake has passed. Everything not yet raked keeps its old pattern, so a moved stone leaves rings round nothing until the monk reaches them.</p>
+  <h3>Re-raking</h3>
+  <p>A change marks the rings and the bands of straight lines it touches. The monk rakes the rings first, then the bands from the far side to the near side, back and forth. A stroke takes about two seconds; a full re-rake after one change is roughly 20 to 25 strokes, about a minute. With reduced motion, re-raking is instant.</p>
+  <p class="credit">Built with Claude for Joe Gao.</p>
+</div>
+<div class="foot">
+  <span class="status" id="status" aria-live="polite"></span>
+  <span class="right">
+    <button id="sound" type="button" aria-pressed="false"><i></i><span>sound off</span></button>
+  </span>
+</div>
+<div class="fallback" id="fallback">This garden needs WebGL.</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const canvas = $('c');
+const mqReduced = matchMedia('(prefers-reduced-motion: reduce)');
+let reduced = mqReduced.matches;
+mqReduced.addEventListener && mqReduced.addEventListener('change', (e) => { reduced = e.matches; });
+
+if (!window.THREE) { $('fallback').style.display = 'block'; return; }
+
+// ---------------------------------------------------------------- renderer
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (e) { $('fallback').style.display = 'block'; return; }
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+renderer.setPixelRatio(DPR);
+renderer.setClearColor(0x000000, 1);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+// the sun moves a few degrees over minutes and stones move rarely: the shadow map is redrawn only when either changes
+renderer.shadowMap.autoUpdate = false;
+
+const canHalf = renderer.capabilities.isWebGL2 &&
+  (renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float'));
+
+const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
+
+// ---------------------------------------------------------------- garden geometry state
+const G = {
+  L: 10, A: 4.65, portrait: false, scale: 100, lam: 0.07, tines: 4,
+  texW: 1024, texH: 512, el: THREE.MathUtils.degToRad(62),
+};
+const TINES = 4;            // a rake with four teeth
+const DEFLECT = 0.62;       // how strongly the straight lines bend round a ring zone
+const MAXS = 7;             // stones in the garden at once
+const SLAB = 0.16;          // thickness of the gravel bed
+const FEATHER_TX = 2.0;     // a stroke's side edges fade over this many texels of the height texture
+
+// ---------------------------------------------------------------- tiny utils
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function h3(x, y, z, s) {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ Math.imul(s, 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296;
+}
+function noise3(x, y, z, s) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const L = (a, b, t) => a + (b - a) * t;
+  const c = (dx, dy, dz) => h3(xi + dx, yi + dy, zi + dz, s);
+  return L(L(L(c(0,0,0), c(1,0,0), u), L(c(0,1,0), c(1,1,0), u), v), L(L(c(0,0,1), c(1,0,1), u), L(c(0,1,1), c(1,1,1), u), v), w);
+}
+function fbm3(x, y, z, s) { let a = 0.5, f = 1, t = 0; for (let o = 0; o < 4; o++) { t += a * noise3(x * f, y * f, z * f, s + o); f *= 2.03; a *= 0.5; } return t / 0.9375; }
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const easeInOut = (p) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, p)));
+const easeOut = (p) => 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
+const easeIn = (p) => Math.pow(Math.min(1, Math.max(0, p)), 2.2);
+
+// ---------------------------------------------------------------- shared GLSL: the field
+const FIELD_GLSL = /* glsl */`
+uniform vec4 uSt[${MAXS}];      // x, z, moss radius, seed
+uniform int uN;
+uniform float uLam;             // groove period
+uniform float uRingW;           // width of the ring zone = tines * period
+uniform float uDefl;
+float fH11(float n){ return fract(sin(n*91.3458)*47453.5453); }
+float fH21(vec2 p){ p = fract(p*vec2(233.34, 851.73)); p += dot(p, p+23.45); return fract(p.x*p.y); }
+float fVN(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+  float a=fH21(i), b=fH21(i+vec2(1,0)), c=fH21(i+vec2(0,1)), d=fH21(i+vec2(1,1));
+  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y); }
+float mossEdge(float th, float seed){
+  return 1.0 + 0.07*sin(3.0*th + seed*6.2832) + 0.045*sin(5.0*th + seed*17.0) + 0.025*sin(8.0*th + seed*31.0);
+}
+float stoneSD(vec2 q, vec4 s){ vec2 d = q - s.xy; return length(d) - s.z*mossEdge(atan(d.y, d.x), s.w); }
+float sminP(float a, float b, float k){ float h = max(k - abs(a-b), 0.0)/k; return min(a,b) - h*h*k*0.25; }
+float prof(float ph){ float c = 0.5 - 0.5*cos(6.2831853*ph); return pow(c, 0.85); }
+// height of freshly raked gravel at q; also returns the union distance D, the nearest stone and the stream function
+float fieldH(vec2 q, out float D, out int near, out float psi){
+  D = 1e4; near = -1; psi = q.y; float best = 1e4;
+  float acc = 0.0, wsum = 0.0;
+  for (int i = 0; i < ${MAXS}; i++){
+    if (i >= uN) break;
+    vec4 s = uSt[i];
+    float di = stoneSD(q, s);
+    if (di < best){ best = di; near = i; }
+    D = sminP(D, di, uLam*3.0);
+    float R = s.z + uRingW;
+    vec2 d = q - s.xy;
+    float r2 = max(dot(d,d), R*R*0.6);
+    float fall = 1.0 - smoothstep(R*1.3, R*2.6, sqrt(r2));
+    acc += d.y * (R*R/r2) * fall;               // flow round a cylinder, kept local
+    wsum += fall;
+  }
+  // where two stones' reaches overlap, blend their deflections instead of adding them (a smooth
+  // partition of unity): lines between stones in a column keep about one stone's squeeze, not two
+  // (the divisor is exactly 1 wherever a single stone acts, and eases into wsum with a C1 joint)
+  float ex = max(wsum - 1.0, 0.0);
+  psi -= uDefl * acc / (ex < 0.5 ? 1.0 + ex*ex : wsum - 0.25);
+  float h;
+  if (D < 0.0) {
+    h = 0.42;                                   // under the moss: never raked
+  } else if (D < uRingW) {
+    float amp = 0.9 + 0.2*fH11(float(near) + 3.7);
+    h = prof(D/uLam) * amp;
+  } else {
+    float k = floor(psi/uRingW);
+    float amp = 0.88 + 0.24*fH11(k);
+    float wob = uLam*0.07*sin(q.x*0.8 + fH11(k+11.0)*6.2832);
+    h = prof((psi + wob)/uLam) * amp;
+    h *= smoothstep(0.0, 0.6*uLam, D - uRingW);  // the outer ring groove cuts the straight lines
+  }
+  float gF = 1.0/(uLam*0.3);
+  h += 0.07*(fVN(q*gF) - 0.5) + 0.04*(fVN(q*gF*2.3 + 7.0) - 0.5);
+  return h;
+}
+`;
+
+// ---------------------------------------------------------------- height texture (the gravel's memory)
+let rt = null;
+function makeRT() {
+  if (rt) rt.dispose();
+  rt = new THREE.WebGLRenderTarget(G.texW, G.texH, {
+    type: canHalf ? THREE.HalfFloatType : THREE.UnsignedByteType, format: THREE.RGBAFormat,
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, stencilBuffer: false,
+    generateMipmaps: false, wrapS: THREE.ClampToEdgeWrapping, wrapT: THREE.ClampToEdgeWrapping,
+  });
+}
+
+const fieldU = {
+  uSt: { value: Array.from({ length: MAXS }, () => new THREE.Vector4()) },
+  uN: { value: 0 }, uLam: { value: G.lam }, uRingW: { value: G.lam * TINES }, uDefl: { value: DEFLECT },
+};
+const paintMat = new THREE.ShaderMaterial({
+  uniforms: Object.assign({
+    uMode: { value: 0 }, uBand: { value: 0 }, uRing: { value: 0 },
+    uP0: { value: 0 }, uP1: { value: 1 }, uSoft: { value: 0.01 }, uDir: { value: 1 }, uTh0: { value: 0 }, uLong: { value: 10 },
+    uFeather: { value: 0.02 },
+  }, fieldU),
+  vertexShader: `varying vec2 vQ; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vQ = w.xy; gl_Position = projectionMatrix*viewMatrix*w; }`,
+  fragmentShader: `varying vec2 vQ;
+uniform int uMode; uniform float uBand; uniform int uRing;
+uniform float uP0, uP1, uSoft, uDir, uTh0, uLong, uFeather;
+${FIELD_GLSL}
+void main(){
+  float D, psi; int near;
+  float h = fieldH(vQ, D, near, psi);
+  float a = 1.0;
+  if (uMode != 0) {
+    // A stroke owns its band (or ring) outright and fades out over a couple of texels beyond its side edges,
+    // so where fresh gravel meets old the seam is antialiased instead of a one-texel stair step. The fringe
+    // writes the same fresh field the neighbouring stroke will write, so once that one is raked it leaves no trace.
+    float t, side;
+    if (uMode == 1) {
+      if (D < uRingW - uFeather) discard;
+      float b0 = uBand*uRingW;
+      float out_ = max(max(b0 - psi, psi - b0 - uRingW), 0.0);
+      if (out_ >= uFeather) discard;
+      side = (1.0 - smoothstep(0.0, uFeather, out_)) * smoothstep(uRingW - uFeather, uRingW, D);
+      t = vQ.x/uLong + 0.5; if (uDir < 0.0) t = 1.0 - t;
+    } else {
+      if (D >= uRingW + uFeather || near != uRing) discard;
+      side = 1.0 - smoothstep(uRingW, uRingW + uFeather, D);
+      vec2 d = vQ - uSt[uRing].xy;
+      t = fract(uDir*(atan(d.y, d.x) - uTh0)/6.2831853);
+    }
+    if (t > uP1 || t < uP0 - 2.0*uSoft) discard;
+    a = smoothstep(uP1, uP1 - uSoft, t) * side;
+  }
+  gl_FragColor = vec4(h, 0.0, 0.0, a);
+}`,
+  transparent: true, depthTest: false, depthWrite: false,
+  blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+  blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.ZeroFactor,
+});
+const paintScene = new THREE.Scene();
+const paintCam = new THREE.OrthographicCamera(-5, 5, 2.5, -2.5, -1, 1);
+const paintQuad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), paintMat);
+paintQuad.frustumCulled = false;
+paintScene.add(paintQuad);
+
+function paint(mode, opts = {}, rect = null) {
+  const u = paintMat.uniforms;
+  u.uMode.value = mode;
+  if (opts.band !== undefined) u.uBand.value = opts.band;
+  if (opts.ring !== undefined) u.uRing.value = opts.ring;
+  u.uP0.value = opts.p0 !== undefined ? opts.p0 : 0;
+  u.uP1.value = opts.p1 !== undefined ? opts.p1 : 1;
+  u.uSoft.value = opts.soft || 0.01;
+  u.uDir.value = opts.dir || 1;
+  u.uTh0.value = opts.th0 || 0;
+  u.uLong.value = G.L;
+  const r = rect || [-G.L / 2, -G.A / 2, G.L / 2, G.A / 2];
+  const x0 = Math.max(-G.L / 2, r[0]), y0 = Math.max(-G.A / 2, r[1]), x1 = Math.min(G.L / 2, r[2]), y1 = Math.min(G.A / 2, r[3]);
+  if (x1 <= x0 || y1 <= y0) return;
+  paintQuad.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0);
+  paintQuad.scale.set(x1 - x0, y1 - y0, 1);
+  const prevAuto = renderer.autoClear;
+  renderer.autoClear = false;
+  renderer.setRenderTarget(rt);
+  renderer.render(paintScene, paintCam);
+  renderer.setRenderTarget(null);
+  renderer.autoClear = prevAuto;
+  needsRender = true;
+}
+
+// ---------------------------------------------------------------- scene
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+
+const sun = new THREE.DirectionalLight(0xffc893, 3.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.00025;
+const NB_BED = 0.004, NB_STONE = 0.016;
+sun.shadow.normalBias = NB_STONE;
+sun.shadow.radius = 3;
+sun.layers.enable(1);           // layer 1 = the shadow bake (gravel plane + sun only)
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0x93acd6, 0x2b2622, 0.5);
+scene.add(hemi);
+
+// gravel bed: plane on top, dark slab beneath
+const gravelU = {
+  uH: { value: null }, uTexel: { value: new THREE.Vector2() }, uDims: { value: new THREE.Vector2(10, 4.65) },
+  uLam: { value: G.lam }, uDepth: { value: 0.02 },
+  uSunXZ: { value: new THREE.Vector2(1, 0) }, uSunTan: { value: 0.3 },
+  uMs: { value: Array.from({ length: MAXS + 1 }, () => new THREE.Vector4()) },
+  uMF: { value: Array.from({ length: MAXS + 1 }, () => new THREE.Vector4()) },
+  uMN: { value: 0 }, uCast: { value: null },
+  uGravel: { value: lin('#ece6d9') }, uMossA: { value: lin('#172a12') }, uMossB: { value: lin('#33491f') },
+};
+const gravelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0 });
+gravelMat.extensions = { derivatives: true };
+gravelMat.onBeforeCompile = (sh) => {
+  Object.assign(sh.uniforms, gravelU);
+  sh.vertexShader = 'varying vec2 vQ;\n' + sh.vertexShader.replace('#include <project_vertex>',
+    '#include <project_vertex>\n  vQ = (modelMatrix * vec4(transformed, 1.0)).xz;');
+  sh.fragmentShader = `varying vec2 vQ;
+uniform sampler2D uH; uniform vec2 uTexel; uniform vec2 uDims; uniform float uLam; uniform float uDepth;
+uniform vec2 uSunXZ; uniform float uSunTan;
+uniform vec4 uMs[${MAXS + 1}]; uniform vec4 uMF[${MAXS + 1}]; uniform int uMN;
+uniform sampler2D uCast;        // stone shadows on the bed, baked from the shadow map when the sun or a stone moves (a = shadow)
+uniform vec3 uGravel; uniform vec3 uMossA; uniform vec3 uMossB;
+float kH21(vec2 p){ p = fract(p*vec2(233.34, 851.73)); p += dot(p, p+23.45); return fract(p.x*p.y); }
+vec3 kND(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f*f*(3.0-2.0*f), du = 6.0*f*(1.0-f);
+  float a = kH21(i), b = kH21(i+vec2(1,0)), c = kH21(i+vec2(0,1)), d = kH21(i+vec2(1,1));
+  return vec3(a + (b-a)*u.x + (c-a)*u.y + (a-b-c+d)*u.x*u.y, du*(vec2(b-a, c-a) + (a-b-c+d)*u.yx));
+}
+float kMossEdge(float th, float seed){
+  return 1.0 + 0.07*sin(3.0*th + seed*6.2832) + 0.045*sin(5.0*th + seed*17.0) + 0.025*sin(8.0*th + seed*31.0);
+}
+` + sh.fragmentShader
+    .replace('#include <color_fragment>', `#include <color_fragment>
+  vec2 kUV = vQ/uDims + 0.5;
+  float kpx = max(fwidth(vQ.x), fwidth(vQ.y));
+  float kh = texture2D(uH, kUV).r;
+  vec2 kGr = vec2(texture2D(uH, kUV + vec2(uTexel.x, 0.0)).r - texture2D(uH, kUV - vec2(uTexel.x, 0.0)).r,
+                  texture2D(uH, kUV + vec2(0.0, uTexel.y)).r - texture2D(uH, kUV - vec2(0.0, uTexel.y)).r)
+             / (2.0*uTexel*uDims) * uDepth;
+  float kgF = 1.0/(uLam*0.2);
+  vec3 kn1 = kND(vQ*kgF);
+  vec3 kn2 = kND(vQ*kgF*2.3 + 17.0);
+  float kgFade = 1.0 - smoothstep(0.3/kgF, 1.1/kgF, kpx);
+  vec2 kGg = (kn1.yz + 0.6*kn2.yz*2.3) * kgF * uLam * 0.016 * kgFade;
+  vec3 kGravel = uGravel * (0.92 + 0.13*mix(0.5, kn1.x, kgFade));
+  float kDark = smoothstep(0.88, 0.96, kH21(floor(vQ*kgF*1.4))) * kgFade;
+  kGravel *= 1.0 - 0.32*kDark;
+  float kMoss = 0.0, kAO = 1.0;
+  vec2 kMg = vec2(0.0);
+  for (int i = 0; i < ${MAXS + 1}; i++){
+    if (i >= uMN) break;
+    vec4 s = uMs[i]; vec4 f = uMF[i];
+    vec2 d = vQ - s.xy; float r = length(d);
+    if (r > s.z*1.25 + uLam*1.5) continue;
+    kAO *= mix(1.0, 0.42 + 0.58*smoothstep(f.z*0.8, f.z*1.6, r), f.y);
+    if (f.x < 0.002) continue;
+    float th = atan(d.y, d.x);
+    float edge = s.z * kMossEdge(th, s.w) * (0.55 + 0.45*f.x);
+    float fz = (kND(vQ*kgF*0.33).x - 0.5)*uLam*0.9 + (kND(vQ*kgF*1.2 + 5.0).x - 0.5)*uLam*0.22;
+    float md = r - edge + fz;
+    float m = (1.0 - smoothstep(-kpx*1.6, kpx*1.6, md)) * smoothstep(0.0, 0.3, f.x);
+    float bev = smoothstep(-uLam*1.4, 0.0, md);
+    kMg += -(d/max(r, 1e-4)) * bev * 0.55 * m;
+    kMoss = max(kMoss, m);
+  }
+  vec3 kMn = kND(vQ*kgF*0.55 + 3.0);
+  float kMn2 = kND(vQ*kgF*0.12 + 9.0).x;
+  vec3 kMossCol = mix(uMossA, uMossB, kMn2) * (0.72 + 0.55*kMn.x);
+  diffuseColor.rgb = mix(kGravel, kMossCol, kMoss);
+  vec2 kG = mix(kGr + kGg, kMg + kMn.yz*kgF*0.55*uLam*0.09, kMoss);
+  vec3 kNW = normalize(vec3(-kG.x, 1.0, -kG.y));
+  vec2 kEd = uDims*0.5 - abs(vQ);
+  kAO *= mix(0.78, 1.0, smoothstep(0.0, uLam*0.8, min(kEd.x, kEd.y)));
+  kAO *= mix(mix(0.68, 1.0, smoothstep(0.0, 0.85, kh)), 1.0, kMoss);
+`)
+    .replace('#include <normal_fragment_maps>', 'normal = normalize((viewMatrix * vec4(kNW, 0.0)).xyz);')
+    .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(0.86, 1.0, kMoss);')
+    .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+  {
+    float occ = -1.0;
+    for (int j = 1; j <= 4; j++){
+      float s = uLam*0.24*float(j);
+      float hs = texture2D(uH, kUV + uSunXZ*s/uDims).r;
+      occ = max(occ, (hs - kh)*uDepth - s*uSunTan);
+    }
+    float kSh = (1.0 - smoothstep(0.0, uDepth*0.3, occ)*(1.0 - kMoss)*0.85) * (1.0 - texture2D(uCast, kUV).a);
+    reflectedLight.directDiffuse *= kSh;
+    reflectedLight.directSpecular *= kSh;
+    reflectedLight.indirectDiffuse *= kAO;
+    reflectedLight.directDiffuse *= mix(1.0, kAO, 0.5);
+  }`);
+};
+let gravel = null, slab = null;
+const slabMat = new THREE.MeshStandardMaterial({ color: lin('#1b1916'), roughness: 0.95, metalness: 0 });
+
+function buildBed() {
+  if (gravel) { scene.remove(gravel, slab); gravel.geometry.dispose(); slab.geometry.dispose(); }
+  const g = new THREE.PlaneGeometry(G.L, G.A, 1, 1); g.rotateX(-Math.PI / 2);
+  // the bed reads its stone shadows from the baked texture (one tap) instead of 17 PCF taps per pixel
+  gravel = new THREE.Mesh(g, gravelMat); gravel.receiveShadow = false; gravel.layers.enable(1);
+  slab = new THREE.Mesh(new THREE.BoxGeometry(G.L, SLAB, G.A), slabMat);
+  slab.position.y = -SLAB / 2 - 0.003; slab.receiveShadow = true;
+  scene.add(gravel, slab);
+}
+
+// ---------------------------------------------------------------- shadow cache
+// Shadows change only when the sun steps (once a second) or a stone moves. Then: redraw the shadow map with an
+// empty pass (camera sees nothing, so only the shadow pass runs), and bake the bed's shadow into a half-res
+// texture seen from below, with three's own PCF lookup (ShadowMaterial). Every other frame skips both.
+let castRT = null;
+const castMat = new THREE.ShadowMaterial({ color: 0x000000, opacity: 1, side: THREE.DoubleSide });
+castMat.transparent = false; castMat.blending = THREE.NoBlending;
+const castCam = new THREE.OrthographicCamera(-5, 5, 2.5, -2.5, 1, 40);
+castCam.layers.set(1);
+const voidCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1);
+voidCam.position.set(0, -500, 0); voidCam.lookAt(0, -1000, 0); voidCam.updateMatrixWorld();
+const voidRT = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+function makeCastRT() {
+  if (castRT) castRT.dispose();
+  castRT = new THREE.WebGLRenderTarget(Math.max(64, Math.round(G.texW / 2)), Math.max(32, Math.round(G.texH / 2)), {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, depthBuffer: true, stencilBuffer: false,
+  });
+  gravelU.uCast.value = castRT.texture;
+  castCam.left = -G.L / 2; castCam.right = G.L / 2; castCam.top = G.A / 2; castCam.bottom = -G.A / 2;
+  castCam.position.set(0, -20, 0); castCam.up.set(0, 0, 1); castCam.lookAt(0, 0, 0);   // from below: right = +x, up = +z, as kUV
+  castCam.updateProjectionMatrix(); castCam.updateMatrixWorld();
+}
+let shadowDirty = true, needsRender = true, shadowUpdates = 0;
+function updateShadows() {
+  const prev = renderer.getRenderTarget();
+  renderer.shadowMap.needsUpdate = true;
+  renderer.setRenderTarget(voidRT); renderer.render(scene, voidCam);
+  // the flat bed takes a small normal bias (tight contact); the stones, which now see their own sunward faces in
+  // the map, take a larger one in the main pass so they do not show acne
+  sun.shadow.normalBias = NB_BED;
+  scene.overrideMaterial = castMat; gravel.receiveShadow = true;
+  renderer.setRenderTarget(castRT); renderer.render(scene, castCam);
+  scene.overrideMaterial = null; gravel.receiveShadow = false;
+  sun.shadow.normalBias = NB_STONE;
+  renderer.setRenderTarget(prev);
+  shadowDirty = false; shadowUpdates++;
+}
+function draw() {
+  if (shadowDirty) updateShadows();
+  renderer.render(scene, cam);
+  needsRender = false;
+}
+
+// ---------------------------------------------------------------- stones
+const PRESETS = [
+  { a: 0.125, sx: 1.55, sy: 0.62, sz: 1.0 },  // large, reclining
+  { a: 0.074, sx: 1.0, sy: 0.95, sz: 0.85 },  // small, upright
+  { a: 0.098, sx: 1.3, sy: 0.5, sz: 1.05 },   // low and flat
+  { a: 0.082, sx: 0.95, sy: 1.15, sz: 0.85 }, // standing
+  { a: 0.11, sx: 1.4, sy: 0.74, sz: 1.0 },
+  { a: 0.064, sx: 1.2, sy: 0.6, sz: 1.0 },
+  { a: 0.09, sx: 1.15, sy: 0.85, sz: 0.95 },
+];
+const stoneMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
+// cast from the sunward faces: with back faces in the map, the ground at the foot of the shadow side sits at the
+// same light depth as the stone's far face, and the bias leaks a lit sliver of moss along every stone's base
+stoneMat.shadowSide = THREE.FrontSide;
+stoneMat.onBeforeCompile = (sh) => {
+  sh.vertexShader = 'varying vec3 vOP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vOP = position;');
+  sh.fragmentShader = `varying vec3 vOP;
+uniform float uGrit;
+uniform mat3 normalMatrix;
+float sH31(vec3 p){ p = fract(p*vec3(.1031,.1030,.0973)); p += dot(p, p.yxz+33.33); return fract((p.x+p.y)*p.z); }
+float sVN(vec3 p){ vec3 i = floor(p), f = fract(p); vec3 u = f*f*(3.0-2.0*f);
+  return mix(mix(mix(sH31(i), sH31(i+vec3(1,0,0)), u.x), mix(sH31(i+vec3(0,1,0)), sH31(i+vec3(1,1,0)), u.x), u.y),
+             mix(mix(sH31(i+vec3(0,0,1)), sH31(i+vec3(1,0,1)), u.x), mix(sH31(i+vec3(0,1,1)), sH31(i+vec3(1,1,1)), u.x), u.y), u.z); }
+` + sh.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+  {
+    vec3 p = vOP*uGrit; float e = 0.35;
+    float n0 = sVN(p) + 0.5*sVN(p*2.7);
+    vec3 g = vec3(sVN(p+vec3(e,0,0)) + 0.5*sVN((p+vec3(e,0,0))*2.7) - n0,
+                  sVN(p+vec3(0,e,0)) + 0.5*sVN((p+vec3(0,e,0))*2.7) - n0,
+                  sVN(p+vec3(0,0,e)) + 0.5*sVN((p+vec3(0,0,e))*2.7) - n0) / e;
+    vec3 gv = normalMatrix * g;
+    gv -= normal*dot(gv, normal);
+    normal = normalize(normal - gv*0.11);
+  }`);
+  sh.uniforms.uGrit = { value: 9.0 };
+};
+
+function buildStoneGeometry(seed, P, S) {
+  const rnd = mulberry32(seed * 7919 + 13);
+  const planes = [];
+  const NP = 16 + Math.floor(rnd() * 7);
+  for (let j = 0; j < NP; j++) {
+    const y = rnd() * 2 - 1, ph = rnd() * Math.PI * 2, r = Math.sqrt(1 - y * y);
+    planes.push([r * Math.cos(ph), y, r * Math.sin(ph), 0.84 + rnd() * 0.36]);
+  }
+  const K = 0.032;
+  const strata = 9 + rnd() * 8, tilt = (rnd() - 0.5) * 0.5;
+  const norm = (P.sx + P.sz) / 2;
+  const sx = P.sx / norm, sy = P.sy / norm, sz = P.sz / norm;
+  const src = new THREE.IcosahedronGeometry(1, 24);
+  const sp = src.attributes.position;
+  const map = new Map(); const pos = []; const index = [];
+  for (let i = 0; i < sp.count; i++) {
+    const x = sp.getX(i), y = sp.getY(i), z = sp.getZ(i);
+    const key = Math.round(x * 1e4) + ',' + Math.round(y * 1e4) + ',' + Math.round(z * 1e4);
+    let id = map.get(key);
+    if (id === undefined) {
+      const l = Math.hypot(x, y, z), vx = x / l, vy = y / l, vz = z / l;
+      let sum = 0;
+      for (const p of planes) {
+        const dt = vx * p[0] + vy * p[1] + vz * p[2];
+        const t = dt > 0.03 ? p[3] / dt : 40;
+        sum += Math.exp(-(t - 1) / K);
+      }
+      let rr = 1 - K * Math.log(sum);
+      rr = Math.min(rr, 1.6);
+      rr *= 1 + 0.022 * Math.sin((vy + tilt * vx) * strata + 4 * noise3(vx * 2, vy * 2, vz * 2, seed + 2)) + 0.07 * (fbm3(vx * 1.5 + 3, vy * 1.5, vz * 1.5, seed) - 0.5) + 0.02 * (noise3(vx * 7, vy * 7, vz * 7, seed + 9) - 0.5);
+      id = pos.length / 3; map.set(key, id);
+      pos.push(vx * rr * sx * S, vy * rr * sy * S, vz * rr * sz * S);
+    }
+    index.push(id);
+  }
+  src.dispose();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox; const Ht = bb.max.y - bb.min.y;
+  const lift = -0.3 * Ht - bb.min.y;    // a third of the stone stays buried
+  const nrm = geo.attributes.normal;
+  const cols = new Float32Array(pos.length);
+  const cA = lin('#20201f'), cB = lin('#353430'), cL = lin('#6b6f66'), cM = lin('#121d0c');
+  let fp = 0;
+  const visH = Ht * 0.7;
+  for (let i = 0; i < pos.length / 3; i++) {
+    const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+    const yw = y + lift;
+    if (Math.abs(yw) < 0.06 * Ht) fp = Math.max(fp, Math.hypot(x, z));
+    const nx = x / S, ny = y / S, nz = z / S;
+    const t = fbm3(nx * 2.2, ny * 2.2, nz * 2.2, seed + 3);
+    let r = cA.r + (cB.r - cA.r) * t, g = cA.g + (cB.g - cA.g) * t, b = cA.b + (cB.b - cA.b) * t;
+    const lich = smooth(0.66, 0.82, noise3(nx * 9, ny * 9, nz * 9, seed + 5)) * 0.2 * (0.4 + 0.6 * Math.max(0, nrm.getY(i)));
+    r += (cL.r - r) * lich; g += (cL.g - g) * lich; b += (cL.b - b) * lich;
+    const hw = yw / visH;
+    const moss = (1 - smooth(0.0, 0.26, hw - 0.12 * noise3(nx * 4, ny * 4, nz * 4, seed + 8))) * smooth(-0.2, 0.05, hw) * 0.75;
+    r += (cM.r - r) * moss; g += (cM.g - g) * moss; b += (cM.b - b) * moss;
+    const ao = (0.3 + 0.7 * smooth(-0.05, 0.55, hw)) * (0.8 + 0.2 * (nrm.getY(i) * 0.5 + 0.5));
+    cols[i * 3] = r * ao; cols[i * 3 + 1] = g * ao; cols[i * 3 + 2] = b * ao;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  return { geo, lift, Ht, fp: Math.max(fp, S * 0.6) };
+}
+
+let stones = [];      // {id, u, v, preset, seed, mesh, lift, Ht, fp, m, state, t, y, mossF, contact, ...}
+let nextId = 1, presetCursor = 0;
+
+function stoneWorld(s) { return { x: s.u * G.L, z: s.v * G.A }; }
+function ringOuter(s) { return s.m + G.lam * TINES; }
+
+function createStone(u, v, presetIdx, seed, instant) {
+  const P = PRESETS[presetIdx % PRESETS.length];
+  const S = P.a * G.A;
+  const built = buildStoneGeometry(seed, P, S);
+  const mesh = new THREE.Mesh(built.geo, stoneMat);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.rotation.y = mulberry32(seed)() * Math.PI * 2;
+  const s = {
+    id: nextId++, u, v, presetIdx, seed, mesh, lift: built.lift, Ht: built.Ht, fp: built.fp,
+    m: Math.max(built.fp * 1.1 + G.lam * 1.2, S * 1.12), state: instant ? 'set' : 'emerging', t: 0,
+    mossF: instant ? 1 : 0, contact: instant ? 1 : 0, born: performance.now(),
+    hx: 0, hz: 0,
+  };
+  const w = stoneWorld(s);
+  s.hx = w.x; s.hz = w.z;
+  mesh.position.set(w.x, instant ? s.lift : s.lift - s.Ht * 1.05, w.z);
+  scene.add(mesh);
+  stones.push(s);
+  return s;
+}
+function rebuildStone(s) {
+  const P = PRESETS[s.presetIdx % PRESETS.length];
+  const S = P.a * G.A;
+  const built = buildStoneGeometry(s.seed, P, S);
+  s.mesh.geometry.dispose(); s.mesh.geometry = built.geo;
+  s.lift = built.lift; s.Ht = built.Ht; s.fp = built.fp; s.m = Math.max(built.fp * 1.1 + G.lam * 1.2, S * 1.12);
+}
+function clampStone(s, u, v) {
+  const R = ringOuter(s) + G.lam * 0.5;
+  const mu = Math.max(0, 0.5 - R / G.L), mv = Math.max(0, 0.5 - R / G.A);
+  return [Math.max(-mu, Math.min(mu, u)), Math.max(-mv, Math.min(mv, v))];
+}
+function collides(s, u, v, ignore) {
+  const x = u * G.L, z = v * G.A;
+  for (const o of stones) {
+    if (o === ignore || o.state === 'sinking') continue;
+    const w = stoneWorld(o);
+    if (Math.hypot(w.x - x, w.z - z) < (o.fp + (s ? s.fp : o.fp * 0.8)) * 1.02) return o;
+  }
+  return null;
+}
+function fieldStones() { return stones.filter((s) => s.state !== 'sinking' && s.state !== 'held'); }
+function syncField() {
+  const fs = fieldStones().slice(0, MAXS);
+  fs.forEach((s, i) => { const w = stoneWorld(s); fieldU.uSt.value[i].set(w.x, w.z, s.m, (s.seed % 997) / 997); s.fi = i; });
+  fieldU.uN.value = fs.length;
+  return fs;
+}
+
+// ---------------------------------------------------------------- the monk
+const monk = { queue: [], cur: null, wait: 0, done: 0, session: 0 };
+function disturb(circles) {
+  // circles: [{x, z, R}] regions whose field changed
+  const fs = syncField();
+  const W = G.lam * TINES;
+  const keys = new Set(monk.queue.map((q) => q.key));
+  const add = [];
+  for (const s of fs) {
+    const w = stoneWorld(s); const R = ringOuter(s);
+    for (const c of circles) {
+      if (Math.hypot(w.x - c.x, w.z - c.z) < R + c.R + G.lam * 3) {
+        const key = 'r' + s.id;
+        if (!keys.has(key)) { keys.add(key); add.push({ key, type: 'ring', id: s.id }); }
+        break;
+      }
+    }
+  }
+  const kMin = Math.floor(-G.A / 2 / W) - 2, kMax = Math.floor(G.A / 2 / W) + 2;
+  for (const c of circles) {
+    const reach = c.R * 2.6 + W;
+    const k0 = Math.max(kMin, Math.floor((c.z - reach) / W)), k1 = Math.min(kMax, Math.floor((c.z + reach) / W));
+    for (let k = k0; k <= k1; k++) {
+      const key = 'b' + k;
+      if (!keys.has(key)) { keys.add(key); add.push({ key, type: 'band', k }); }
+    }
+  }
+  const rings = monk.queue.filter((q) => q.type === 'ring').concat(add.filter((q) => q.type === 'ring'));
+  const bands = monk.queue.filter((q) => q.type === 'band').concat(add.filter((q) => q.type === 'band')).sort((a, b) => a.k - b.k);
+  if (!monk.cur && monk.queue.length === 0) { monk.done = 0; monk.wait = Math.max(monk.wait, 0.7); }
+  monk.queue = rings.concat(bands);
+  if (instantMode()) finishAll();
+}
+function instantMode() { return reduced || forceInstant; }
+let forceInstant = false;
+function finishAll() {
+  syncField();
+  paint(0);
+  monk.queue = []; monk.cur = null; monk.done = 0;
+}
+function startStroke(q) {
+  const fs = syncField();
+  if (q.type === 'ring') {
+    const s = fs.find((o) => o.id === q.id);
+    if (!s) return null;
+    const R = ringOuter(s);
+    const len = Math.PI * 2 * (s.m + R) / 2;
+    return Object.assign(q, { p: 0, head: 0, dur: Math.max(1.7, len / G.L * 2.6), dir: (s.id % 2) ? 1 : -1, th0: (s.seed % 628) / 100, soft: G.lam * 0.8 / len, s });
+  }
+  return Object.assign(q, { p: 0, head: 0, dur: 1.85, dir: (q.k % 2 === 0) ? 1 : -1, soft: G.lam * 0.8 / G.L });
+}
+function strokeRect(c, h0, h1) {
+  const W = G.lam * TINES;
+  if (c.type === 'ring') {
+    const w = stoneWorld(c.s), R = ringOuter(c.s) + G.lam;
+    return [w.x - R, w.z - R, w.x + R, w.z + R];
+  }
+  let a = h0 - 2.5 * c.soft, b = h1 + c.soft;
+  if (c.dir < 0) { const t = a; a = 1 - b; b = 1 - t; }
+  const margin = W + 1.2 * G.A * 0.12;
+  return [(a - 0.5) * G.L, c.k * W - margin, (b - 0.5) * G.L, (c.k + 1) * W + margin];
+}
+function paintStroke(c, h0, h1) {
+  if (c.type === 'ring') {
+    if (c.s.fi === undefined || !fieldStones().includes(c.s)) return;
+    paint(2, { ring: c.s.fi, p0: h0, p1: h1, soft: c.soft, dir: c.dir, th0: c.th0 }, strokeRect(c, h0, h1));
+  } else {
+    paint(1, { band: c.k, p0: h0, p1: h1, soft: c.soft, dir: c.dir }, strokeRect(c, h0, h1));
+  }
+}
+function monkStep(dt) {
+  if (instantMode()) { if (monk.queue.length || monk.cur) finishAll(); return; }
+  if (stones.some((s) => s.state === 'held')) return;        // the monk waits while you hold a stone
+  if (!monk.cur) {
+    if (!monk.queue.length) return;
+    monk.wait -= dt;
+    if (monk.wait > 0) return;
+    monk.cur = startStroke(monk.queue.shift());
+    if (!monk.cur) return;
+  }
+  const c = monk.cur;
+  syncField();
+  c.p += dt / c.dur;
+  const h0 = c.head;
+  const h1 = c.p >= 1 ? 1 + c.soft * 1.5 : easeInOut(c.p);
+  paintStroke(c, h0, h1);
+  c.head = h1;
+  if (c.p >= 1) { monk.cur = null; monk.done++; monk.wait = 0.32; }
+}
+function monkHead() {
+  const c = monk.cur; if (!c) return null;
+  if (c.type === 'ring') {
+    const w = stoneWorld(c.s), R = (c.s.m + ringOuter(c.s)) / 2;
+    const th = c.th0 + c.dir * c.head * Math.PI * 2;
+    return new THREE.Vector3(w.x + Math.cos(th) * R, 0, w.z + Math.sin(th) * R);
+  }
+  const t = c.dir > 0 ? c.head : 1 - c.head;
+  return new THREE.Vector3((t - 0.5) * G.L, 0, (c.k + 0.5) * G.lam * TINES);
+}
+
+// ---------------------------------------------------------------- layout
+const header = document.querySelector('header');
+let W = 0, H = 0, rebuilds = 0;
+function layout() {
+  W = window.innerWidth; H = window.innerHeight;
+  renderer.setSize(W, H, false);
+  const portrait = H > W * 1.05;
+  const changed = portrait !== G.portrait || !rt;
+  G.portrait = portrait;
+  G.A = G.L / (portrait ? 1.72 : 2.15);
+  const sinE = Math.sin(G.el), cosE = Math.cos(G.el);
+  const hb = header.getBoundingClientRect().bottom;
+  const narrow = W < 720;
+  const short = H < 500 && W > H;   // a phone on its side: smaller margins round the garden
+  // the garden stops above the footer, which sits higher on a phone with a home bar (env(safe-area-inset-bottom))
+  const ft = document.querySelector('.foot').getBoundingClientRect().top;
+  const top = hb + (short ? 14 : narrow ? 22 : 36), bottom = Math.min(H - (short ? 50 : narrow ? 62 : 66), ft - 8);
+  const side = narrow ? 16 : 32;
+  const availW = W - 2 * side, availH = Math.max(120, bottom - top);
+  const gw = portrait ? G.A : G.L;
+  const gh = (portrait ? G.L : G.A) * sinE + SLAB * cosE + (portrait ? G.A : G.L) * 0.0;
+  G.scale = Math.min(availW * (portrait ? 1 : 0.9) / gw, availH / gh);
+  const cx = W / 2, cy = top + availH / 2;
+  cam.left = -cx / G.scale; cam.right = (W - cx) / G.scale; cam.top = cy / G.scale; cam.bottom = -(H - cy) / G.scale;
+  const dir = portrait ? new THREE.Vector3(cosE, sinE, 0) : new THREE.Vector3(0, sinE, cosE);
+  cam.position.copy(dir).multiplyScalar(30); cam.up.set(0, 1, 0); cam.lookAt(0, 0, 0);
+  cam.near = 0.1; cam.far = 80; cam.updateProjectionMatrix();
+  // The field keeps its scale (so the gravel keeps its memory and the monk his queue) through ordinary resizes:
+  // a phone's toolbar sliding away, a window dragged a little wider. The grooves simply grow or shrink with the
+  // garden on screen. Only when the garden turns (portrait <-> landscape) or its size on screen moves far enough
+  // that the height texture would visibly over- or under-sample is the field rebuilt and raked again at once.
+  const tpuT = Math.min(G.scale * DPR, 2048 / G.L);
+  const rescale = changed || !G.tpu || tpuT < G.tpu * 0.8 || tpuT > G.tpu * 1.25;
+  if (rescale) {
+    const tpu = G.tpu = tpuT;
+    // groove period: a whole number of texels, so long straight lines do not beat against the texel grid
+    G.lam = Math.max(6, Math.round((narrow ? 6.6 : 7.6) / G.scale * tpu)) / tpu;
+    G.texW = Math.round(G.L * tpu); G.texH = Math.round(G.A * tpu);
+    fieldU.uLam.value = G.lam; fieldU.uRingW.value = G.lam * TINES;
+    paintMat.uniforms.uFeather.value = FEATHER_TX / tpu;
+    gravelU.uLam.value = G.lam; gravelU.uDepth.value = G.lam * 0.24;
+    gravelU.uDims.value.set(G.L, G.A);
+    gravelU.uTexel.value.set(1 / G.texW, 1 / G.texH);
+    paintCam.left = -G.L / 2; paintCam.right = G.L / 2; paintCam.top = G.A / 2; paintCam.bottom = -G.A / 2; paintCam.updateProjectionMatrix();
+    makeRT(); gravelU.uH.value = rt.texture;
+    buildBed(); makeCastRT();
+    for (const s of stones) {
+      rebuildStone(s);
+      [s.u, s.v] = clampStone(s, s.u, s.v);
+      const w = stoneWorld(s); s.hx = w.x; s.hz = w.z;
+      s.mesh.position.x = w.x; s.mesh.position.z = w.z;
+    }
+    const sh = sun.shadow.camera; const ext = G.L * 0.62;
+    sh.left = -ext; sh.right = ext; sh.top = ext; sh.bottom = -ext; sh.near = 1; sh.far = 60; sh.updateProjectionMatrix();
+    // the field changed scale: the old pattern no longer fits, so rake everything at once
+    monk.queue = []; monk.cur = null;
+    syncField(); paint(0);
+    rebuilds++;
+  }
+  shadowDirty = true; needsRender = true; sunStep = -1;
+  return rescale;
+}
+
+// ---------------------------------------------------------------- dawn light
+const T0 = performance.now();
+let sunStep = -1;
+function updateSun(t) {
+  // the sun moves by hundredths of a degree per second: step it once a second, so the shadows are rebuilt
+  // (and an idle garden is redrawn) once a second rather than every frame
+  const step = reduced ? 0 : Math.floor(t / 1000);
+  if (step === sunStep) return;
+  sunStep = step; shadowDirty = true; needsRender = true;
+  const drift = step;
+  const elS = THREE.MathUtils.degToRad(20 + 2.5 * Math.sin(drift / 95));
+  const az = THREE.MathUtils.degToRad(50 + 5 * Math.sin(drift / 140 + 1.3));
+  const left = G.portrait ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(-1, 0, 0);
+  const far = G.portrait ? new THREE.Vector3(-1, 0, 0) : new THREE.Vector3(0, 0, -1);
+  const d = new THREE.Vector3().addScaledVector(left, Math.cos(elS) * Math.cos(az)).addScaledVector(far, Math.cos(elS) * Math.sin(az));
+  d.y = Math.sin(elS); d.normalize();
+  sun.position.copy(d).multiplyScalar(25); sun.target.position.set(0, 0, 0);
+  const hz = Math.hypot(d.x, d.z);
+  gravelU.uSunXZ.value.set(d.x / hz, d.z / hz);
+  gravelU.uSunTan.value = d.y / hz;
+}
+
+// ---------------------------------------------------------------- interaction
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function pick(ev) {
+  ndc.set((ev.clientX / W) * 2 - 1, -(ev.clientY / H) * 2 + 1);
+  ray.setFromCamera(ndc, cam);
+  const live = stones.filter((s) => s.state !== 'sinking');
+  const hits = ray.intersectObjects(live.map((s) => s.mesh), false);
+  let stone = hits.length ? live.find((s) => s.mesh === hits[0].object) : null;
+  const p = new THREE.Vector3();
+  const onGround = ray.ray.intersectPlane(ground, p);
+  const inside = onGround && Math.abs(p.x) <= G.L / 2 && Math.abs(p.z) <= G.A / 2;
+  if (!stone && inside) {
+    for (const s of live) { const w = stoneWorld(s); if (Math.hypot(p.x - w.x, p.z - w.z) < s.fp * 1.05) { stone = s; break; } }
+  }
+  return { stone, p: inside ? p : null, raw: onGround ? p : null };
+}
+let press = null, lastTap = { t: 0, stone: null, placed: null };
+// ---------- how it works ----------
+const panel = $('panel'), made = $('made');
+function setPanel(on) {
+  panel.classList.toggle('on', on); made.setAttribute('aria-expanded', String(on));
+  if (on) $('panel-h').focus({ preventScroll: true }); else if (panel.contains(document.activeElement)) made.focus();
+}
+made.addEventListener('click', () => setPanel(!panel.classList.contains('on')));
+$('close').addEventListener('click', () => setPanel(false));
+// a tap outside closes the panel; on the gravel that tap only closes it, it does not set a stone
+addEventListener('pointerdown', (ev) => {
+  if (!panel.classList.contains('on') || panel.contains(ev.target) || made.contains(ev.target)) return;
+  setPanel(false);
+  if (ev.target === canvas) ev.stopPropagation();
+}, true);
+addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && panel.classList.contains('on')) setPanel(false); });
+canvas.addEventListener('pointerdown', (ev) => {
+  if (press) return;
+  const hit = pick(ev);
+  press = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, t: performance.now(), hit, drag: false };
+  canvas.setPointerCapture(ev.pointerId);
+});
+canvas.addEventListener('pointermove', (ev) => {
+  if (!press) {
+    if (ev.pointerType === 'mouse') { const h = pick(ev); canvas.style.cursor = h.stone ? 'grab' : (h.p ? 'pointer' : 'default'); }
+    return;
+  }
+  if (ev.pointerId !== press.id) return;
+  const s = press.hit.stone;
+  if (!s) return;
+  if (!press.drag && Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > 5) {
+    press.drag = true;
+    const w = stoneWorld(s);
+    press.from = { x: w.x, z: w.z, R: ringOuter(s) };
+    const g = pick(ev).raw;
+    press.off = g ? { x: w.x - g.x, z: w.z - g.z } : { x: 0, z: 0 };
+    s.state = 'held'; s.t = 0;
+    canvas.style.cursor = 'grabbing';
+  }
+  if (press.drag) {
+    const g = pick(ev).raw;
+    if (g) { const [u, v] = clampStone(s, (g.x + press.off.x) / G.L, (g.z + press.off.z) / G.A); s.u = u; s.v = v; }
+  }
+});
+function endPress(ev, cancelled) {
+  if (!press || ev.pointerId !== press.id) return;
+  const pr = press; press = null;
+  try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+  const now = performance.now();
+  if (pr.drag) {
+    const s = pr.hit.stone;
+    settleStone(s);
+    s.state = 'dropping'; s.t = 0;
+    const w = stoneWorld(s);
+    disturb([pr.from, { x: w.x, z: w.z, R: ringOuter(s) }]);
+    canvas.style.cursor = 'grab';
+    return;
+  }
+  if (cancelled) return;
+  const s = pr.hit.stone;
+  if (s) {
+    const dbl = now - lastTap.t < 380 && (lastTap.stone === s || lastTap.placed === s);
+    lastTap = { t: now, stone: s, placed: null };
+    if (dbl) { removeStone(s); lastTap = { t: 0, stone: null, placed: null }; }
+    return;
+  }
+  if (pr.hit.p) {
+    const placed = placeStone(pr.hit.p.x / G.L, pr.hit.p.z / G.A);
+    lastTap = { t: now, stone: null, placed };
+  }
+}
+canvas.addEventListener('pointerup', (ev) => endPress(ev, false));
+canvas.addEventListener('pointercancel', (ev) => endPress(ev, true));
+canvas.addEventListener('dblclick', (ev) => ev.preventDefault());
+
+function settleStone(s) {
+  // push a dropped stone off any neighbour it landed on
+  for (let it = 0; it < 12; it++) {
+    const o = collides(s, s.u, s.v, s);
+    if (!o) break;
+    const w = stoneWorld(s), q = stoneWorld(o);
+    let dx = w.x - q.x, dz = w.z - q.z; const d = Math.hypot(dx, dz) || 1e-3; dx /= d; dz /= d;
+    const need = (o.fp + s.fp) * 1.05;
+    [s.u, s.v] = clampStone(s, (q.x + dx * need) / G.L, (q.z + dz * need) / G.A);
+  }
+}
+function placeStone(u, v, opts = {}) {
+  const live = stones.filter((s) => s.state !== 'sinking');
+  const pi = opts.preset !== undefined ? opts.preset : presetCursor++;
+  const seed = opts.seed !== undefined ? opts.seed : (Math.random() * 1e6) | 0;
+  if (live.length >= MAXS) {
+    // fifteen stones, never all seen at once: the eldest leaves to make room
+    const eldest = live.reduce((a, b) => (a.born < b.born ? a : b));
+    removeStone(eldest);
+  }
+  const s = createStone(0, 0, pi, seed, !!opts.instant || instantMode());
+  [s.u, s.v] = clampStone(s, u, v);
+  if (collides(s, s.u, s.v, s)) settleStone(s);
+  const w = stoneWorld(s); s.hx = w.x; s.hz = w.z; s.mesh.position.x = w.x; s.mesh.position.z = w.z;
+  if (!opts.quiet) disturb([{ x: w.x, z: w.z, R: ringOuter(s) }]);
+  return s;
+}
+function removeStone(s) {
+  if (s.state === 'sinking') return;
+  const w = stoneWorld(s);
+  s.state = 'sinking'; s.t = 0;
+  disturb([{ x: w.x, z: w.z, R: ringOuter(s) }]);
+  if (instantMode()) { disposeStone(s); }
+}
+function disposeStone(s) {
+  scene.remove(s.mesh); s.mesh.geometry.dispose();
+  stones = stones.filter((o) => o !== s);
+}
+
+// ---------------------------------------------------------------- stone animation + moss uniforms
+let lastStoneCount = -1;
+function animateStones(dt) {
+  const inst = instantMode();
+  let moved = false;
+  for (const s of stones.slice()) {
+    s.t += dt;
+    if (s.state !== 'set') moved = true;
+    const ground = s.lift, below = s.lift - s.Ht * 1.05, held = s.lift + s.Ht * 0.22;
+    const k = 1 - Math.exp(-dt * 14);
+    s.hx += (stoneWorld(s).x - s.hx) * (s.state === 'held' ? k : 1);
+    s.hz += (stoneWorld(s).z - s.hz) * (s.state === 'held' ? k : 1);
+    let y = s.mesh.position.y;
+    if (s.state === 'emerging') {
+      if (inst) s.t = 9;
+      const p = s.t / 1.9;
+      y = below + (ground - below) * easeOut(p);
+      s.mossF = smooth(0.55, 1.0, p) * 1; s.contact = smooth(0.0, 1.0, p);
+      if (p >= 1.25) { s.state = 'set'; s.mossF = 1; }
+    } else if (s.state === 'held') {
+      y += (held - y) * (1 - Math.exp(-dt * 10));
+      s.mossF = Math.max(0, s.mossF - dt / 0.45);
+      s.contact = Math.max(0, s.contact - dt / 0.3);
+    } else if (s.state === 'dropping') {
+      if (inst) s.t = 9;
+      const p = s.t / 0.42;
+      y = y + (ground - y) * Math.min(1, easeIn(p) + 0.08);
+      if (p >= 1) y = ground;
+      s.contact = Math.min(1, s.contact + dt / 0.35);
+      s.mossF = smooth(0.4, 1.0, s.t / 1.6);
+      if (s.t >= 1.6) { s.state = 'set'; s.mossF = 1; s.contact = 1; y = ground; }
+    } else if (s.state === 'sinking') {
+      const p = s.t / 1.5;
+      y = ground + (below - ground) * easeIn(p);
+      s.mossF = 1 - smooth(0.0, 0.7, p); s.contact = 1 - smooth(0.2, 1.0, p);
+      if (p >= 1 || inst) { disposeStone(s); continue; }
+    } else {
+      y = ground; s.mossF = 1; s.contact = 1;
+    }
+    s.mesh.position.set(s.hx, y, s.hz);
+    // instant placement (reduced motion) skips the animated states, so also watch the mesh itself
+    const lp = s.lp || (s.lp = new THREE.Vector3(NaN, 0, 0));
+    if (!lp.equals(s.mesh.position)) { lp.copy(s.mesh.position); moved = true; }
+  }
+  if (stones.length !== lastStoneCount) { lastStoneCount = stones.length; moved = true; }
+  if (moved) { shadowDirty = true; needsRender = true; }
+  const list = stones.slice(0, MAXS + 1);
+  gravelU.uMN.value = list.length;
+  list.forEach((s, i) => {
+    gravelU.uMs.value[i].set(s.hx, s.hz, s.m, (s.seed % 997) / 997);
+    gravelU.uMF.value[i].set(s.mossF, s.contact, s.fp, 0);
+  });
+}
+
+// ---------------------------------------------------------------- sound: sand under a rake
+const sound = { on: false, ctx: null, gain: null, pan: null };
+function initAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+  const ctx = new AC(); const sr = ctx.sampleRate; const len = sr * 3;
+  const buf = ctx.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch); let grain = 0;
+    for (let i = 0; i < len; i++) {
+      if (Math.random() < 0.0045) grain = 1;            // single pebbles ticking
+      grain *= 0.985;
+      d[i] = (Math.random() * 2 - 1) * (0.28 + 0.9 * grain);
+    }
+  }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 0.55;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+  const g = ctx.createGain(); g.gain.value = 0;
+  const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+  src.connect(hp); hp.connect(bp); bp.connect(lp); lp.connect(g);
+  if (pan) { g.connect(pan); pan.connect(ctx.destination); } else g.connect(ctx.destination);
+  src.start();
+  Object.assign(sound, { ctx, gain: g, pan, bp });
+  return true;
+}
+$('sound').addEventListener('click', () => {
+  if (!sound.ctx && !initAudio()) return;
+  sound.on = !sound.on;
+  if (sound.on) sound.ctx.resume();
+  $('sound').setAttribute('aria-pressed', String(sound.on));
+  $('sound').querySelector('span').textContent = sound.on ? 'sound on' : 'sound off';
+});
+const tmpV = new THREE.Vector3();
+function updateSound(t) {
+  if (!sound.ctx) return;
+  const now = sound.ctx.currentTime;
+  const c = monk.cur;
+  let target = 0;
+  if (sound.on && c && !stones.some((s) => s.state === 'held')) {
+    const speed = Math.sin(Math.PI * Math.min(1, c.p));
+    const scrape = 0.75 + 0.25 * Math.sin(t * 0.011) * Math.sin(t * 0.0047 + 1.7);
+    target = 0.05 * speed * scrape;
+    const hp = monkHead();
+    if (hp && sound.pan) { tmpV.copy(hp).project(cam); sound.pan.pan.setTargetAtTime(Math.max(-0.7, Math.min(0.7, tmpV.x * 0.7)), now, 0.15); }
+    sound.bp.frequency.setTargetAtTime(2600 + 900 * speed, now, 0.2);
+  }
+  sound.gain.gain.setTargetAtTime(target, now, 0.12);
+}
+
+// ---------------------------------------------------------------- status whisper
+const statusEl = $('status');
+let statusShown = false;
+function updateStatus() {
+  const pending = monk.queue.length + (monk.cur ? 1 : 0);
+  const active = pending > 0 && !instantMode();
+  if (active) {
+    const total = monk.done + pending;
+    statusEl.textContent = `raking, stroke ${Math.min(total, monk.done + 1)} of ${total}`;
+  }
+  if (active !== statusShown) { statusEl.classList.toggle('on', active); statusShown = active; }
+}
+
+// ---------------------------------------------------------------- start
+layout();
+const INITIAL = [
+  { u: -0.255, v: -0.09, preset: 0, seed: 4021 },
+  { u: -0.165, v: 0.15, preset: 1, seed: 1777 },
+  { u: 0.235, v: 0.07, preset: 2, seed: 9001 },
+];
+for (const s of INITIAL) placeStone(s.u, s.v, { preset: s.preset, seed: s.seed, instant: true, quiet: true });
+presetCursor = 3;
+syncField(); paint(0);
+
+let resizeT = 0;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(layout, 120); });
+
+let last = performance.now();
+const fpsWin = [];
+let frameCount = 0;
+function frame(now) {
+  frameCount++;
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  fpsWin.push(dt); if (fpsWin.length > 60) fpsWin.shift();
+  updateSun(now - T0);
+  animateStones(dt);
+  monkStep(dt);
+  updateSound(now);
+  updateStatus();
+  // draw only when something changed: a stroke was painted, a stone moved, the sun stepped, or the page was resized
+  if (needsRender) { draw(); drawCount++; }
+  if (!paused) requestAnimationFrame(frame);
+}
+let drawCount = 0;
+let paused = false;
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- test hooks
+window.__kare = {
+  ready: true, canHalf,
+  stones: () => stones.map((s) => ({ id: s.id, u: s.u, v: s.v, state: s.state })),
+  place: (u, v, preset) => placeStone(u, v, preset !== undefined ? { preset } : {}).id,
+  remove: (i) => { const live = stones.filter((s) => s.state !== 'sinking'); if (live[i]) removeStone(live[i]); },
+  clear: () => { for (const s of stones.slice()) removeStone(s); },
+  move: (i, u, v) => {
+    const live = stones.filter((s) => s.state !== 'sinking'); const s = live[i]; if (!s) return;
+    const w0 = stoneWorld(s); const from = { x: w0.x, z: w0.z, R: ringOuter(s) };
+    [s.u, s.v] = clampStone(s, u, v); settleStone(s);
+    const w = stoneWorld(s); disturb([from, { x: w.x, z: w.z, R: ringOuter(s) }]);
+  },
+  setInstant: (b) => { forceInstant = !!b; },
+  monk: () => ({ active: !!monk.cur || monk.queue.length > 0, cur: monk.cur ? monk.cur.key : null, queued: monk.queue.length, done: monk.done }),
+  fps: () => fpsWin.length ? Math.round(fpsWin.length / fpsWin.reduce((a, b) => a + b, 0)) : 0,
+  toScreen: (u, v) => { tmpV.set(u * G.L, 0, v * G.A).project(cam); return { x: (tmpV.x + 1) / 2 * W, y: (1 - tmpV.y) / 2 * H }; },
+  // all: a frame while the monk rakes (shadows cached); shadowFrame: a frame where the sun stepped or a stone moved
+  // (shadow map + bake + frame); shadowBake: the shadow map + bake alone. Same keys as v10 otherwise.
+  bench: (what) => {
+    const gl = renderer.getContext(); const px = new Uint8Array(4);
+    const sync = () => gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    draw(); sync();                                   // warm up (compiles the bake program)
+    const run = (dirty) => { const t = performance.now(); for (let i = 0; i < 3; i++) { if (dirty) shadowDirty = true; draw(); } sync(); return (performance.now() - t) / 3; };
+    const out = { all: run(false), shadowFrame: run(true) };
+    { const t = performance.now(); for (let i = 0; i < 3; i++) updateShadows(); sync(); out.shadowBake = (performance.now() - t) / 3; }
+    sun.castShadow = false; draw(); sync(); out.noShadow = run(false); sun.castShadow = true; shadowDirty = true; draw(); sync();
+    stones.forEach((s) => s.mesh.visible = false); out.noStones = run(false); stones.forEach((s) => s.mesh.visible = true);
+    gravel.visible = false; out.noGravel = run(false); gravel.visible = true;
+    const t = performance.now(); paint(0); sync(); out.fullPaint = performance.now() - t;
+    out.castRT = [castRT.width, castRT.height];
+    return out;
+  },
+  draws: () => drawCount, shadowUpdates: () => shadowUpdates, rebuilds: () => rebuilds,
+  advance: (sec, step = 1 / 30) => { for (let t = 0; t < sec; t += step) { animateStones(step); monkStep(step); } },
+  pause: (b) => { const was = paused; paused = !!b; if (was && !paused) { last = performance.now(); requestAnimationFrame(frame); } },
+  renderOnce: () => { updateSun(performance.now() - T0); animateStones(0); updateStatus(); draw(); },
+  G, _monk: monk, _frames: () => frameCount,
+};
+})();
+</script>
+</body>
+</html>
