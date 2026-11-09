@@ -57,7 +57,7 @@ The falloff keeps each stone's influence local, and dividing by the summed fallo
 - `screenshots/`: the garden, a re-rake in progress, and the phone layout
 - `loop/`: the loop video, its GIF and a poster
 
-The headless check and benchmark scripts are not in this repository yet.
+The headless check and benchmark scripts are not included in this repository.
 
 ## Credits and license
 
