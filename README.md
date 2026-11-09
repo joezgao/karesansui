@@ -8,6 +8,8 @@ A dry Zen garden in the browser: raked white gravel, a few dark stones on moss i
 
 ## Open it
 
+**Live:** [joezgao.github.io/karesansui/karesansui.html](https://joezgao.github.io/karesansui/karesansui.html) (nothing to install).
+
 Open `karesansui.html` in a recent browser. It is a single 60 kB file; it loads three.js 0.147.0 from jsDelivr and Lora and Inter from Google Fonts, and everything else is inline.
 
 - **Tap** the gravel to set a stone (at most seven; an eighth lets the eldest go).
