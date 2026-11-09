@@ -43,7 +43,7 @@ The falloff keeps each stone's influence local, and dividing by the summed fallo
 
 ## Limits
 
-- **60 fps is untested on real hardware.** Headless software WebGL (SwiftShader) takes about one to one and a half seconds per frame at 1440×900. The per-pixel cost is modest (about eleven texture reads, a few value-noise calls and a moss loop with early exit), but weak mobile GPUs at DPR 2 are the risk while the monk rakes.
+- **Frame time is measured on one Mac only.** On an Apple M5 Pro (Chromium 152, ANGLE Metal; GPU-synced timing of the render passes, median of 5 runs, 2026-11-06), a frame while the monk rakes took 2.27 ms at 1440×900 at 2× density (worst 4.0 ms) and 1.8 ms at 375×812 at 2× (worst 2.7 ms); a frame where the sun or a stone moved took 2.9 ms and 2.67 ms. That leaves a wide margin under the 16.7 ms a 60 fps frame allows, but it was not checked as a live, on-screen frame rate, and not on a phone GPU: weak mobile GPUs at DPR 2 are still the risk while the monk rakes. (Headless software WebGL, used for the screenshots, takes about one to one and a half seconds per frame.)
 - Rotating between portrait and landscape, or resizing the garden by more than about 20–25% on screen, re-rakes everything instantly, and a re-rake in progress is lost. In portrait the garden turns 90° so the lines still run along its long side.
 - The flow is a blend of single-cylinder flows, not an exact multi-body solution. Lines still squeeze against the long walls when a stone sits close to one (most visible in portrait).
 - Band seams are real seams: where a fresh stroke meets old gravel the grooves jump, as in raked gravel, softened over two texels.
